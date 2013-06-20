@@ -78,6 +78,11 @@
 			>;
 		};
 
+		ecap0_pins: backlight_pins {
+			pinctrl-single,pins = <
+				0x164 0x0	/* eCAP0_in_PWM0_out.eCAP0_in_PWM0_out MODE0 */
+			>;
+		};
 	};
 
 	ocp {
@@ -145,6 +150,16 @@
 			ti,hwmods = "lcdc";
 			ti,allow-non-reduced-blanking-modes;
 			status = "okay";
+		};
+
+		epwmss0: epwmss@48300000 {
+			status = "okay";
+
+			ecap0: ecap@48300100 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&ecap0_pins>;
+			};
 		};
 	};
 
@@ -235,6 +250,13 @@
 				vsync-active = <1>;
 			};
 		};
+	};
+
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&ecap0 0 50000 0>;
+		brightness-levels = <0 51 53 56 62 75 101 152 255>;
+		default-brightness-level = <8>;
 	};
 };
 
