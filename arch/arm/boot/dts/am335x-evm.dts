@@ -26,7 +26,7 @@
 
 	am33xx_pinmux: pinmux@44e10800 {
 		pinctrl-names = "default";
-		pinctrl-0 = <&matrix_keypad_s0 &volume_keys_s0>;
+		pinctrl-0 = <&matrix_keypad_s0 &volume_keys_s0 &lcd_pins_s0>;
 
 		matrix_keypad_s0: matrix_keypad_s0 {
 			pinctrl-single,pins = <
@@ -143,13 +143,27 @@
 		};
 
 		lcdc {
-			compatible = "ti,am33xx-tilcdc";
+			compatible = "ti,da830-lcdc", "ti,am33xx-lcdc";
 			reg = <0x4830e000 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <36>;
 			ti,hwmods = "lcdc";
-			ti,allow-non-reduced-blanking-modes;
 			status = "okay";
+			display-timings {
+				800x480p62 {
+					clock-frequency = <30000000>;
+					hactive = <800>;
+					vactive = <480>;
+					hfront-porch = <39>;
+					hback-porch = <39>;
+					hsync-len = <47>;
+					vback-porch = <29>;
+					vfront-porch = <13>;
+					vsync-len = <2>;
+					hsync-active = <1>;
+					vsync-active = <1>;
+				};
+			};
 		};
 
 		epwmss0: epwmss@48300000 {
