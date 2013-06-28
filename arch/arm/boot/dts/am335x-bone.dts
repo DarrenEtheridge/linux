@@ -28,6 +28,13 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&user_leds_s0>;
 
+		i2c2_pins: i2c2_pins {
+			pinctrl-single,pins = <
+				0x178 0x73 /* uart1_ctsn, SLEWCTRL_SLOW | INPUT_PULLUP | MODE3 */
+				0x17c 0x73 /* uart1_rtsn, SLEWCTRL_SLOW | INPUT_PULLUP | MODE3 */
+			>;
+		};
+
 		user_leds_s0: user_leds_s0 {
 			pinctrl-single,pins = <
 				0x54 0x7	/* gpmc_a5.gpio1_21, OUTPUT | MODE7 */
@@ -36,6 +43,15 @@
 				0x60 0x17	/* gpmc_a8.gpio1_24, OUTPUT_PULLUP | MODE7 */
 			>;
 		};
+
+		bone_dvi_cape_audio_pins: pinmux_bone_dvi_cape_audio_pins {
+		 pinctrl-single,pins = <
+				0x190 0x20  /* mcasp0_aclkx.mcasp0_aclkx, INPUT | MODE0 */
+				0x194 0x20  /* mcasp0_fsx.mcasp0_fsx, INPUT | MODE0 */
+				0x19c 0x22  /* mcasp0_ahclkr.mcasp0_axr2, INPUT | MODE2 */
+				0x1ac 0x22  /* mcasp0_ahclkx.mcasp0_axr3, INPUT | MODE2 */
+			>;
+	  };
 	};
 
 	ocp {
@@ -51,6 +67,18 @@
 				reg = <0x24>;
 			};
 
+		};
+		sound {
+			compatible = "ti,da830-evm-audio";
+			ti,model = "DA830 EVM";
+			ti,audio-codec = <&tlv320aic3x>;
+			ti,mcasp-controller = <&mcasp0>;
+			ti,codec-clock-rate = <12000000>;
+			ti,audio-routing =
+				"Headphone Jack",       "HPLOUT",
+				"Headphone Jack",       "HPROUT",
+				"LINE1L",               "Line In",
+				"LINE1R",               "Line In";
 		};
 	};
 
@@ -85,7 +113,42 @@
 	};
 };
 
+&i2c2 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&i2c2_pins>;
+
+		status = "okay";
+
+		tlv320aic3x: tlv320aic3x@1b {
+			compatible = "ti,tlv320aic3x";
+				reg = <0x1b>;
+				status = "okay";
+		};
+};
+
 /include/ "tps65217.dtsi"
+
+&mcasp0 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&bone_dvi_cape_audio_pins>;
+
+		status = "okay";
+
+		op-mode = <0>;          /* MCASP_IIS_MODE */
+		tdm-slots = <2>;
+		num-serializer = <16>;
+		serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+			0 0 2 1
+			0 0 0 0
+			0 0 0 0
+			0 0 0 0
+		>;
+		tx-num-evt = <1>;
+		rx-num-evt = <1>;
+};
 
 &tps {
 	regulators {
