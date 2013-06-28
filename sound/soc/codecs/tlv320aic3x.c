@@ -1148,10 +1148,14 @@ static int aic3x_set_power(struct snd_soc_codec *codec, int power)
 	u8 *cache = codec->reg_cache;
 
 	if (power) {
+
+	#if 0
 		ret = regulator_bulk_enable(ARRAY_SIZE(aic3x->supplies),
 					    aic3x->supplies);
 		if (ret)
 			goto out;
+	#endif
+
 		aic3x->power = 1;
 		/*
 		 * Reset release and cache sync is necessary only if some
@@ -1183,8 +1187,10 @@ static int aic3x_set_power(struct snd_soc_codec *codec, int power)
 		aic3x->power = 0;
 		/* HW writes are needless when bias is off */
 		codec->cache_only = 1;
+#if 0
 		ret = regulator_bulk_disable(ARRAY_SIZE(aic3x->supplies),
 					     aic3x->supplies);
+#endif
 	}
 out:
 	return ret;
@@ -1379,6 +1385,7 @@ static int aic3x_probe(struct snd_soc_codec *codec)
 		gpio_direction_output(aic3x->gpio_reset, 0);
 	}
 
+#if 0
 	for (i = 0; i < ARRAY_SIZE(aic3x->supplies); i++)
 		aic3x->supplies[i].supply = aic3x_supply_names[i];
 
@@ -1400,6 +1407,7 @@ static int aic3x_probe(struct snd_soc_codec *codec)
 			goto err_notif;
 		}
 	}
+#endif
 
 	codec->cache_only = 1;
 	aic3x_init(codec);
