@@ -44,6 +44,16 @@
 				0x154 0x27	/* spi0_d0.gpio0_3, INPUT | MODE7 */
 			>;
 		};
+
+		am335x_evm_audio_pins: am335x_evm_audio_pins {
+			pinctrl-single,pins = <
+				0x10c 0x24  /* mcasp0_aclkx.mcasp0_aclkx, INPUT | MODE4 */
+				0x110 0x24  /* mcasp0_fsx.mcasp0_fsx,	INPUT | MODE 4*/
+				0x108 0x4  /* mcasp0_ahclkr.mcasp0_axr2, OUTPUT | MODE4 */
+				0x144 0x24  /* mcasp0_ahclkx.mcasp0_axr3, INPUT | MODE4 */
+			>;
+		};
+
 	};
 
 	ocp {
@@ -101,7 +111,27 @@
 				compatible = "ti,tmp275";
 				reg = <0x48>;
 			};
+
+			tlv320aic3x: tlv320aic3x@1b {
+				compatible = "ti,tlv320aic3x";
+				reg = <0x1b>;
+				status = "okay";
+			};
+
 		};
+		sound {
+			compatible = "ti,da830-evm-audio";
+			ti,model = "DA830 EVM";
+			ti,audio-codec = <&tlv320aic3x>;
+			ti,mcasp-controller = <&mcasp1>;
+			ti,codec-clock-rate = <12000000>;
+			ti,audio-routing =
+				"Headphone Jack",       "HPLOUT",
+				"Headphone Jack",       "HPROUT",
+				"LINE1L",               "Line In",
+				"LINE1R",               "Line In";
+		};
+
 	};
 
 	vbat: fixedregulator@0 {
@@ -160,7 +190,28 @@
 	};
 };
 
+
+
 /include/ "tps65910.dtsi"
+
+&mcasp1 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&am335x_evm_audio_pins>;
+
+		status = "okay";
+
+		op-mode = <0>;          /* MCASP_IIS_MODE */
+		tdm-slots = <2>;
+		num-serializer = <16>;
+		serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+			0 0 1 2
+			0 0 0 0
+			0 0 0 0
+			0 0 0 0
+		>;
+		tx-num-evt = <1>;
+		rx-num-evt = <1>;
+};
 
 &tps {
 	vcc1-supply = <&vbat>;
