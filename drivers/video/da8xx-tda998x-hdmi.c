@@ -425,6 +425,12 @@ tda998x_reset(struct tda998x_encoder *encoder)
 	reg_write(encoder, REG_PLL_SCG2,     0x10);
 }
 
+void da8xx_tda998x_setmode(void *panel)
+{
+	printk("************set mode called*************\n");
+}
+EXPORT_SYMBOL(da8xx_tda998x_setmode);
+
 #if 0
 static void
 tda998x_encoder_dpms(struct tda998x_encoder *encoder, int mode)

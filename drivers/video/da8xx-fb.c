@@ -759,6 +759,9 @@ static unsigned da8xx_fb_round_clk(struct da8xx_fb_par *par,
 	return KHZ2PICOS(lcdc_clk_rate / (1000 * lcdc_clk_div));
 }
 
+
+void da8xx_tda998x_setmode(void *panel);
+
 static int lcd_init(struct da8xx_fb_par *par, const struct lcd_ctrl_config *cfg,
 		struct fb_videomode *panel)
 {
@@ -807,6 +810,10 @@ static int lcd_init(struct da8xx_fb_par *par, const struct lcd_ctrl_config *cfg,
 	/* Configure FDD */
 	lcdc_write((lcdc_read(LCD_RASTER_CTRL_REG) & 0xfff00fff) |
 		       (cfg->fdd << 12), LCD_RASTER_CTRL_REG);
+
+#ifdef CONFIG_FB_DA8XX_TDA998X
+	da8xx_tda998x_setmode((void *)panel);
+#endif
 
 	return 0;
 }
