@@ -115,6 +115,10 @@
 				reg = <0x50>;
 			};
 
+			hdmi: hdmi@70 {
+			      compatible = "nxp,tda998x";
+			      reg = <0x70>;
+			};
 		};
 
 		uart0: serial@44e09000 {

@@ -21,6 +21,9 @@
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
+
+#define TDA998X_DEBUG
 
 #ifdef TDA998X_DEBUG            
 #define DBG(fmt, ...) printk(KERN_DEBUG "%s: " fmt,__func__,##__VA_ARGS__)
@@ -41,6 +44,7 @@ struct tda998x_encoder {
 };
 
 #define to_tda998x_priv(x)  ((struct tda998x_priv *)x->tda998x_priv)
+#define tda998x_i2c_encoder_get_client(x) ((struct i2c_client *)x->client)
 
 /* The TDA9988 series of devices use a paged register scheme.. to simplify
  * things we encode the page # in upper bits of the register #.  To read/
@@ -280,8 +284,6 @@ cec_write(struct tda998x_encoder *encoder, uint16_t addr, uint8_t val)
 		dev_err(&client->dev, "Error %d writing to cec:0x%x\n", ret, addr);
 }
 
-#if 0
-
 static uint8_t
 cec_read(struct tda998x_encoder *encoder, uint8_t addr)
 {
@@ -423,13 +425,7 @@ tda998x_reset(struct tda998x_encoder *encoder)
 	reg_write(encoder, REG_PLL_SCG2,     0x10);
 }
 
-/* DRM encoder functions */
-
-static void
-tda998x_encoder_set_config(struct tda998x_encoder *encoder, void *params)
-{
-}
-
+#if 0
 static void
 tda998x_encoder_dpms(struct tda998x_encoder *encoder, int mode)
 {
@@ -596,27 +592,7 @@ tda998x_encoder_mode_set(struct drm_encoder *encoder,
 	/* must be last register set: */
 	reg_clear(encoder, REG_TBG_CNTRL_0, TBG_CNTRL_0_SYNC_ONCE);
 }
-
-static enum drm_connector_status
-tda998x_encoder_detect(struct drm_encoder *encoder,
-		      struct drm_connector *connector)
-{
-	uint8_t val = cec_read(encoder, REG_CEC_RXSHPDLEV);
-	return (val & CEC_RXSHPDLEV_HPD) ? connector_status_connected :
-			connector_status_disconnected;
-}
-
-
-static void
-da8xx_tda998x_encoder_destroy(struct drm_encoder *encoder)
-{
-	struct tda998x_priv *priv = to_tda998x_priv(encoder);
-	drm_i2c_encoder_destroy(encoder);
-	kfree(priv);
-}
-
-
-#endif  /* yep, this is the zero */
+#endif
 
 
 /* I2C driver functions */
@@ -626,7 +602,6 @@ da8xx_tda998x_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	struct tda998x_priv *priv;
 	struct tda998x_encoder *encoder;
 
-	printk("******************in tda998x probe\n");
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
@@ -634,47 +609,14 @@ da8xx_tda998x_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	priv->current_page = 0;
 	priv->cec = i2c_new_dummy(client->adapter, 0x34);
 
-
 	encoder = kzalloc(sizeof(*encoder), GFP_KERNEL);
-	if (!encoder)
+	if (!encoder) {
+		kfree(priv);
 		return -ENOMEM;
+	}
 
 	encoder->client = client;
 	encoder->tda998x_priv = priv;
-
-	/* wake up the device: */
-	cec_write(encoder, REG_CEC_ENAMODS,
-			CEC_ENAMODS_EN_RXSENS | CEC_ENAMODS_EN_HDMI);
-
-	return 0;
-}
-
-static int
-da8xx_tda998x_remove(struct i2c_client *client)
-{
-	return 0;
-}
-
-#if 0
-static int
-da8xx_tda998x_encoder_init(struct i2c_client *client,
-		    struct drm_device *dev,
-		    struct drm_encoder_slave *encoder_slave)
-{
-	struct drm_encoder *encoder = &encoder_slave->base;
-	struct tda998x_priv *priv;
-
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
-	if (!priv)
-		return -ENOMEM;
-
-	priv->current_page = 0;
-	priv->cec = i2c_new_dummy(client->adapter, 0x34);
-	priv->dpms = DRM_MODE_DPMS_OFF;
-
-
-	encoder_slave->slave_priv = priv;
-	encoder_slave->slave_funcs = &tda998x_encoder_funcs;
 
 	/* wake up the device: */
 	cec_write(encoder, REG_CEC_ENAMODS,
@@ -690,10 +632,10 @@ da8xx_tda998x_encoder_init(struct i2c_client *client,
 	priv->rev &= ~0x30; /* not-hdcp and not-scalar bit */
 
 	switch (priv->rev) {
-	case TDA9989N2:  dev_info(dev->dev, "found TDA9989 n2");  break;
-	case TDA19989:   dev_info(dev->dev, "found TDA19989");    break;
-	case TDA19989N2: dev_info(dev->dev, "found TDA19989 n2"); break;
-	case TDA19988:   dev_info(dev->dev, "found TDA19988");    break;
+	case TDA9989N2:  dev_info(&client->dev, "found TDA9989 n2");  break;
+	case TDA19989:   dev_info(&client->dev, "found TDA19989");    break;
+	case TDA19989N2: dev_info(&client->dev, "found TDA19989 n2"); break;
+	case TDA19988:   dev_info(&client->dev, "found TDA19988");    break;
 	default:
 		DBG("found unsupported device: %04x", priv->rev);
 		goto fail;
@@ -718,18 +660,20 @@ fail:
 	/* if encoder_init fails, the encoder slave is never registered,
 	 * so cleanup here:
 	 */
-	if (priv->cec)
-		i2c_unregister_device(priv->cec);
 	kfree(priv);
-	encoder_slave->slave_priv = NULL;
-	encoder_slave->slave_funcs = NULL;
+	kfree(encoder);
 	return -ENXIO;
 }
 
-#endif
+static int
+da8xx_tda998x_remove(struct i2c_client *client)
+{
+	return 0;
+}
+
 
 static struct i2c_device_id da8xx_tda998x_ids[] = {
-	{ "da8xx_tda998x", 0 },
+	{ "tda998x", 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, tda998x_ids);
@@ -739,28 +683,9 @@ static struct i2c_driver da8xx_tda998x_driver = {
 	.remove = da8xx_tda998x_remove,
 	.driver = {
 		.owner = THIS_MODULE,
-		.name = "da8xx_tda998x",
+		.name = "tda998x",
 	},
 	.id_table = da8xx_tda998x_ids,
 };
 
-static const struct i2c_board_info info = {
-		I2C_BOARD_INFO("da8xx_tda998x", 0x70)
-};
-
-static int __init da8xx_tda998x_init(void)
-{
-	printk("*******************************tda998x_init fbdev version\n");
-//	i2c_new_device(i2c_get_adapter(0), &info);
-	return i2c_add_driver(&da8xx_tda998x_driver);
-}
-
-static void __exit da8xx_tda998x_exit(void)
-{
-	printk("*******************************tda998x_exit fbdev version\n");
-	i2c_del_driver(&da8xx_tda998x_driver);
-}
-
-
-module_init(da8xx_tda998x_init);
-module_exit(da8xx_tda998x_exit);
+module_i2c_driver(da8xx_tda998x_driver);
