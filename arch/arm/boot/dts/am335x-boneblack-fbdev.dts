@@ -115,7 +115,7 @@
 				reg = <0x50>;
 			};
 
-			hdmi: hdmi@70 {
+			hdmi1: hdmi@70 {
 			      compatible = "nxp,tda998x";
 			      reg = <0x70>;
 			};
@@ -140,6 +140,7 @@
 			interrupts = <36>;
 			ti,hwmods = "lcdc";
 			status = "okay";
+			hdmi = <&hdmi1>;
 			display-timings {
 					800x480p62 {
 						   clock-frequency = <30000000>;
