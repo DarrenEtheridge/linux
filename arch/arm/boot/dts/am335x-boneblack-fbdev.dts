@@ -26,7 +26,7 @@
 
 	am33xx_pinmux: pinmux@44e10800 {
 		pinctrl-names = "default";
-		pinctrl-0 = <&clkout2_pin &nxp_hdmi_bonelt_pins>;
+		pinctrl-0 = <&clkout2_pin &nxp_hdmi_bonelt_pins &nxp_hdmi_bonelt_off_pins>;
 
 		userled_pins: pinmux_userled_pins {
 			pinctrl-single,pins = <

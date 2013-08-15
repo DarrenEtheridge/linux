@@ -22,6 +22,7 @@
 #include <linux/i2c.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/fb.h>
 
 #define TDA998X_DEBUG
 
@@ -399,6 +400,7 @@ reg_clear(struct tda998x_encoder *encoder, uint16_t reg, uint8_t val)
 static void
 tda998x_reset(struct tda998x_encoder *encoder)
 {
+	printk("*****reset %x\n", encoder);
 	/* reset audio and i2c master: */
 	reg_set(encoder, REG_SOFTRESET, SOFTRESET_AUDIO | SOFTRESET_I2C_MASTER);
 	msleep(50);
@@ -425,11 +427,191 @@ tda998x_reset(struct tda998x_encoder *encoder)
 	reg_write(encoder, REG_PLL_SCG2,     0x10);
 }
 
-void da8xx_tda998x_setmode(void *panel)
+struct tda_mode {
+	uint32_t clock;
+	uint32_t vrefresh;
+	uint32_t hdisplay;
+	uint32_t hsync_start;
+	uint32_t hsync_end;
+	uint32_t htotal;
+	uint32_t vdisplay;
+	uint32_t vsync_start;
+	uint32_t vsync_end;
+	uint32_t vtotal;
+	uint32_t flags;
+};
+
+static inline void
+convert_to_display_mode(struct tda_mode *mode,
+			struct fb_videomode *timing)
 {
-	printk("************set mode called*************\n");
+	mode->clock = timing->pixclock / 1000;
+	mode->vrefresh = timing->refresh;
+
+	mode->hdisplay = timing->xres;
+	mode->hsync_start = mode->hdisplay + timing->right_margin;
+	mode->hsync_end = mode->hsync_start + timing->hsync_len;
+	mode->htotal = mode->hsync_end + timing->left_margin;
+
+	mode->vdisplay = timing->yres;
+	mode->vsync_start = mode->vdisplay + timing->lower_margin;
+	mode->vsync_end = mode->vsync_start + timing->vsync_len;
+	mode->vtotal = mode->vsync_end + timing->upper_margin;
+
 }
-EXPORT_SYMBOL(da8xx_tda998x_setmode);
+
+
+void da8xx_tda998x_setmode(struct tda998x_encoder *encoder, struct fb_videomode *vid_mode)
+{
+	struct tda998x_priv *priv = to_tda998x_priv(encoder);
+	uint16_t hs_start, hs_end, line_start, line_end;
+	uint16_t vwin_start, vwin_end, de_start, de_end;
+	uint16_t ref_pix, ref_line, pix_start2;
+	uint8_t reg, div, rep;
+	struct tda_mode tda_mode;
+	struct tda_mode *mode = &tda_mode;
+
+	printk("************set mode called************* %x\n", encoder);
+
+	convert_to_display_mode(mode, vid_mode);
+	
+	hs_start   = mode->hsync_start - mode->hdisplay;
+	hs_end     = mode->hsync_end - mode->hdisplay;
+	line_start = 1;
+	line_end   = 1 + mode->vsync_end - mode->vsync_start;
+	vwin_start = mode->vtotal - mode->vsync_start;
+	vwin_end   = vwin_start + mode->vdisplay;
+	de_start   = mode->htotal - mode->hdisplay;
+	de_end     = mode->htotal;
+
+	pix_start2 = 0;
+#if 0
+	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
+		pix_start2 = (mode->htotal / 2) + hs_start;
+#endif
+
+	/* TODO how is this value calculated?  It is 2 for all common
+	 * formats in the tables in out of tree nxp driver (assuming
+	 * I've properly deciphered their byzantine table system)
+	 */
+	ref_line = 2;
+
+	/* this might changes for other color formats from the CRTC: */
+	ref_pix = 3 + hs_start;
+
+	div = 148500 / mode->clock;
+
+	DBG("clock=%d, div=%u", mode->clock, div);
+	DBG("hs_start=%u, hs_end=%u, line_start=%u, line_end=%u",
+			hs_start, hs_end, line_start, line_end);
+	DBG("vwin_start=%u, vwin_end=%u, de_start=%u, de_end=%u",
+			vwin_start, vwin_end, de_start, de_end);
+	DBG("ref_line=%u, ref_pix=%u, pix_start2=%u",
+			ref_line, ref_pix, pix_start2);
+
+	/* Setup the VIP mappings, enable audio and video ports */
+	reg_write(encoder, REG_ENA_AP, 0xff);
+	reg_write(encoder, REG_ENA_VP_0, 0xff);
+	reg_write(encoder, REG_ENA_VP_1, 0xff);
+	reg_write(encoder, REG_ENA_VP_2, 0xff);
+	/* set muxing after enabling ports: */
+	reg_write(encoder, REG_VIP_CNTRL_0,
+		VIP_CNTRL_0_SWAP_A(2) | VIP_CNTRL_0_SWAP_B(3));
+	reg_write(encoder, REG_VIP_CNTRL_1,
+		VIP_CNTRL_1_SWAP_C(0) | VIP_CNTRL_1_SWAP_D(1));
+	reg_write(encoder, REG_VIP_CNTRL_2,
+		VIP_CNTRL_2_SWAP_E(4) | VIP_CNTRL_2_SWAP_F(5));
+
+	/* mute the audio FIFO: */
+	reg_set(encoder, REG_AIP_CNTRL_0, AIP_CNTRL_0_RST_FIFO);
+
+	/* set HDMI HDCP mode off: */
+	reg_set(encoder, REG_TBG_CNTRL_1, TBG_CNTRL_1_DWIN_DIS);
+	reg_clear(encoder, REG_TX33, TX33_HDMI);
+
+	reg_write(encoder, REG_ENC_CNTRL, ENC_CNTRL_CTL_CODE(0));
+	/* no pre-filter or interpolator: */
+	reg_write(encoder, REG_HVF_CNTRL_0, HVF_CNTRL_0_PREFIL(0) |
+			HVF_CNTRL_0_INTPOL(0));
+	reg_write(encoder, REG_VIP_CNTRL_5, VIP_CNTRL_5_SP_CNT(0));
+	reg_write(encoder, REG_VIP_CNTRL_4, VIP_CNTRL_4_BLANKIT(0) |
+			VIP_CNTRL_4_BLC(0));
+	reg_clear(encoder, REG_PLL_SERIAL_3, PLL_SERIAL_3_SRL_CCIR);
+
+	reg_clear(encoder, REG_PLL_SERIAL_1, PLL_SERIAL_1_SRL_MAN_IZ);
+	reg_clear(encoder, REG_PLL_SERIAL_3, PLL_SERIAL_3_SRL_DE);
+	reg_write(encoder, REG_SERIALIZER, 0);
+	reg_write(encoder, REG_HVF_CNTRL_1, HVF_CNTRL_1_VQR(0));
+
+	/* TODO enable pixel repeat for pixel rates less than 25Msamp/s */
+	rep = 0;
+	reg_write(encoder, REG_RPT_CNTRL, 0);
+	reg_write(encoder, REG_SEL_CLK, SEL_CLK_SEL_VRF_CLK(0) |
+			SEL_CLK_SEL_CLK1 | SEL_CLK_ENA_SC_CLK);
+
+	reg_write(encoder, REG_PLL_SERIAL_2, PLL_SERIAL_2_SRL_NOSC(div) |
+			PLL_SERIAL_2_SRL_PR(rep));
+
+	reg_write16(encoder, REG_VS_PIX_STRT_2_MSB, pix_start2);
+	reg_write16(encoder, REG_VS_PIX_END_2_MSB, pix_start2);
+
+	/* set color matrix bypass flag: */
+	reg_set(encoder, REG_MAT_CONTRL, MAT_CONTRL_MAT_BP);
+
+	/* set BIAS tmds value: */
+	reg_write(encoder, REG_ANA_GENERAL, 0x09);
+
+	reg_clear(encoder, REG_TBG_CNTRL_0, TBG_CNTRL_0_SYNC_MTHD);
+
+	reg_write(encoder, REG_VIP_CNTRL_3, 0);
+	reg_set(encoder, REG_VIP_CNTRL_3, VIP_CNTRL_3_SYNC_HS);
+
+#if 0
+	if (mode->flags & DRM_MODEFLAG_NVSYNC)
+		reg_set(encoder, REG_VIP_CNTRL_3, VIP_CNTRL_3_V_TGL);
+
+	if (mode->flags & DRM_MODE_FLAG_NHSYNC)
+		reg_set(encoder, REG_VIP_CNTRL_3, VIP_CNTRL_3_H_TGL);
+#endif
+
+	reg_write(encoder, REG_VIDFORMAT, 0x00);
+	reg_write16(encoder, REG_NPIX_MSB, mode->hdisplay - 1);
+	reg_write16(encoder, REG_NLINE_MSB, mode->vdisplay - 1);
+	reg_write16(encoder, REG_VS_LINE_STRT_1_MSB, line_start);
+	reg_write16(encoder, REG_VS_LINE_END_1_MSB, line_end);
+	reg_write16(encoder, REG_VS_PIX_STRT_1_MSB, hs_start);
+	reg_write16(encoder, REG_VS_PIX_END_1_MSB, hs_start);
+	reg_write16(encoder, REG_HS_PIX_START_MSB, hs_start);
+	reg_write16(encoder, REG_HS_PIX_STOP_MSB, hs_end);
+	reg_write16(encoder, REG_VWIN_START_1_MSB, vwin_start);
+	reg_write16(encoder, REG_VWIN_END_1_MSB, vwin_end);
+	reg_write16(encoder, REG_DE_START_MSB, de_start);
+	reg_write16(encoder, REG_DE_STOP_MSB, de_end);
+
+	if (priv->rev == TDA19988) {
+		/* let incoming pixels fill the active space (if any) */
+		reg_write(encoder, REG_ENABLE_SPACE, 0x01);
+	}
+
+	reg_write16(encoder, REG_REFPIX_MSB, ref_pix);
+	reg_write16(encoder, REG_REFLINE_MSB, ref_line);
+
+	reg = TBG_CNTRL_1_VHX_EXT_DE |
+			TBG_CNTRL_1_VHX_EXT_HS |
+			TBG_CNTRL_1_VHX_EXT_VS |
+			TBG_CNTRL_1_DWIN_DIS | /* HDCP off */
+			TBG_CNTRL_1_VH_TGL_2;
+#if 0
+	if (mode->flags & (DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_NHSYNC))
+		reg |= TBG_CNTRL_1_VH_TGL_0;
+#endif
+
+	reg_set(encoder, REG_TBG_CNTRL_1, reg);
+
+	/* must be last register set: */
+	reg_clear(encoder, REG_TBG_CNTRL_0, TBG_CNTRL_0_SYNC_ONCE);
+
+}
 
 #if 0
 static void
@@ -600,6 +782,7 @@ tda998x_encoder_mode_set(struct drm_encoder *encoder,
 }
 #endif
 
+void da8xx_register_module(struct device_node *node, void *encoder_private);
 
 /* I2C driver functions */
 static int
@@ -607,6 +790,8 @@ da8xx_tda998x_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct tda998x_priv *priv;
 	struct tda998x_encoder *encoder;
+
+	printk("************************probe tda998x\n");
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -646,6 +831,10 @@ da8xx_tda998x_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		DBG("found unsupported device: %04x", priv->rev);
 		goto fail;
 	}
+
+	printk("HDMI actual device of_node %x\n", client->dev.of_node);
+
+	da8xx_register_module(client->dev.of_node, encoder);
 
 	/* after reset, enable DDC: */
 	reg_write(encoder, REG_DDC_DISABLE, 0x00);
