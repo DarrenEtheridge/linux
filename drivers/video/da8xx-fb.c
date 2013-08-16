@@ -443,10 +443,18 @@ static void lcd_cfg_horizontal_sync(int back_porch, int pulse_width,
 	u32 reg;
 
 	reg = lcdc_read(LCD_RASTER_TIMING_0_REG) & 0xf;
-	reg |= ((back_porch & 0xff) << 24)
-	    | ((front_porch & 0xff) << 16)
-	    | ((pulse_width & 0x3f) << 10);
+	reg |= (((back_porch-1) & 0xff) << 24)
+		| (((front_porch-1) & 0xff) << 16)
+		| (((pulse_width-1) & 0x3f) << 10);
 	lcdc_write(reg, LCD_RASTER_TIMING_0_REG);
+
+/* need to fix this for v2 only, and clear the bits */
+	reg = lcdc_read(LCD_RASTER_TIMING_2_REG);
+	reg |= ((front_porch-1) & 0x300) >> 8;
+	reg |= ((back_porch-1) & 0x300) >> 4;
+	reg |= ((pulse_width-1) & 0x3c0) << 21;
+	lcdc_write(reg, LCD_RASTER_TIMING_2_REG);
+
 }
 
 static void lcd_cfg_vertical_sync(int back_porch, int pulse_width,
@@ -457,7 +465,7 @@ static void lcd_cfg_vertical_sync(int back_porch, int pulse_width,
 	reg = lcdc_read(LCD_RASTER_TIMING_1_REG) & 0x3ff;
 	reg |= ((back_porch & 0xff) << 24)
 	    | ((front_porch & 0xff) << 16)
-	    | ((pulse_width & 0x3f) << 10);
+		| (((pulse_width-1) & 0x3f) << 10);
 	lcdc_write(reg, LCD_RASTER_TIMING_1_REG);
 }
 
