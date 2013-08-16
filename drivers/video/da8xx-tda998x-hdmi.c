@@ -518,9 +518,9 @@ void da8xx_tda998x_setmode(struct tda998x_encoder *encoder, struct fb_videomode 
 	reg_write(encoder, REG_VIP_CNTRL_0,
 		VIP_CNTRL_0_SWAP_A(2) | VIP_CNTRL_0_SWAP_B(3));
 	reg_write(encoder, REG_VIP_CNTRL_1,
-		VIP_CNTRL_1_SWAP_C(0) | VIP_CNTRL_1_SWAP_D(1));
+		VIP_CNTRL_1_SWAP_C(4) | VIP_CNTRL_1_SWAP_D(5));
 	reg_write(encoder, REG_VIP_CNTRL_2,
-		VIP_CNTRL_2_SWAP_E(4) | VIP_CNTRL_2_SWAP_F(5));
+		VIP_CNTRL_2_SWAP_E(0) | VIP_CNTRL_2_SWAP_F(1));
 
 	/* mute the audio FIFO: */
 	reg_set(encoder, REG_AIP_CNTRL_0, AIP_CNTRL_0_RST_FIFO);
@@ -635,11 +635,11 @@ tda998x_encoder_dpms(struct tda998x_encoder *encoder, int mode)
 		reg_write(encoder, REG_ENA_VP_2, 0xff);
 		/* set muxing after enabling ports: */
 		reg_write(encoder, REG_VIP_CNTRL_0,
-				VIP_CNTRL_0_SWAP_A(2) | VIP_CNTRL_0_SWAP_B(3));
+				VIP_CNTRL_0_SWAP_A(4) | VIP_CNTRL_0_SWAP_B(5));
 		reg_write(encoder, REG_VIP_CNTRL_1,
 				VIP_CNTRL_1_SWAP_C(0) | VIP_CNTRL_1_SWAP_D(1));
 		reg_write(encoder, REG_VIP_CNTRL_2,
-				VIP_CNTRL_2_SWAP_E(4) | VIP_CNTRL_2_SWAP_F(5));
+				VIP_CNTRL_2_SWAP_E(2) | VIP_CNTRL_2_SWAP_F(3));
 		break;
 	case DRM_MODE_DPMS_OFF:
 		/* disable audio and video ports */
