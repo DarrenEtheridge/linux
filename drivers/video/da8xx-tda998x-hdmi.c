@@ -441,11 +441,10 @@ struct tda_mode {
 	uint32_t flags;
 };
 
-static inline void
-convert_to_display_mode(struct tda_mode *mode,
+static void convert_to_display_mode(struct tda_mode *mode,
 			struct fb_videomode *timing)
 {
-	mode->clock = timing->pixclock / 1000;
+	mode->clock = PICOS2KHZ(timing->pixclock);
 	mode->vrefresh = timing->refresh;
 
 	mode->hdisplay = timing->xres;
