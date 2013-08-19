@@ -832,7 +832,7 @@ static int lcd_init(struct da8xx_fb_par *par, const struct lcd_ctrl_config *cfg,
 		printk("rounded clock rate %d\n", clk_round_rate(par->lcdc_clk, pixclock*2));
 		/* in raster mode, minimum divisor is 2: */
 		ret = clk_set_rate(par->disp_clk, pixclock * 2);
-		if (ret) {
+		if (IS_ERR_VALUE(ret)) {
 			dev_err(par->dev, "failed to set display clock rate to: %d\n",
 				pixclock);
 			return ret;
