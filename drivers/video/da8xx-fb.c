@@ -449,7 +449,7 @@ static void lcd_cfg_horizontal_sync(int back_porch, int pulse_width,
 	lcdc_write(reg, LCD_RASTER_TIMING_0_REG);
 
 /* need to fix this for v2 only, and clear the bits */
-	reg = lcdc_read(LCD_RASTER_TIMING_2_REG);
+	reg = lcdc_read(LCD_RASTER_TIMING_2_REG) & ~0x7800000f;
 	reg |= ((front_porch-1) & 0x300) >> 8;
 	reg |= ((back_porch-1) & 0x300) >> 4;
 	reg |= ((pulse_width-1) & 0x3c0) << 21;
@@ -522,12 +522,12 @@ static int lcd_cfg_display(const struct lcd_ctrl_config *cfg,
 	else
 		reg &= ~LCD_SYNC_EDGE;
 
-	if (panel->sync & FB_SYNC_HOR_HIGH_ACT)
+	if ((panel->sync & FB_SYNC_HOR_HIGH_ACT)==0)
 		reg |= LCD_INVERT_LINE_CLOCK;
 	else
 		reg &= ~LCD_INVERT_LINE_CLOCK;
 
-	if (panel->sync & FB_SYNC_VERT_HIGH_ACT)
+	if ((panel->sync & FB_SYNC_VERT_HIGH_ACT) == 0)
 		reg |= LCD_INVERT_FRAME_CLOCK;
 	else
 		reg &= ~LCD_INVERT_FRAME_CLOCK;

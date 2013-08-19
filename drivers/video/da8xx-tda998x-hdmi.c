@@ -531,6 +531,9 @@ static void convert_to_display_mode(struct tda_mode *mode,
 	printk("mode->vdisplay %d\n", mode->vdisplay);
 	printk("mode->vsync_start %d\n", mode->vsync_start);
 	printk("mode->vsync_end %d\n", mode->vsync_end);
+	printk("mode->hskew %d\n", mode->hskew);
+
+	mode->flags ^= FB_SYNC_HOR_HIGH_ACT;
 
 }
 
