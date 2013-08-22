@@ -142,6 +142,32 @@
 			status = "okay";
 			hdmi = <&hdmi1>;
 			display-timings {
+					1280x720P60 {
+						   clock-frequency = <74250000>;
+						   hactive = <1280>;
+						   vactive = <720>;
+						   hfront-porch = <110>;
+						   hback-porch = <220>;
+						   hsync-len = <40>;
+						   vback-porch = <20>;
+						   vfront-porch = <5>;
+						   vsync-len = <5>;
+						   hsync-active = <1>;
+						   vsync-active = <1>;
+					};
+					1920x1080P24 {
+						   clock-frequency = <74160000>;
+						   hactive = <1920>;
+						   vactive = <1080>;
+						   hfront-porch = <638>;
+						   hback-porch = <148>;
+						   hsync-len = <44>;
+						   vback-porch = <36>;
+						   vfront-porch = <4>;
+						   vsync-len = <5>;
+						   hsync-active = <1>;
+						   vsync-active = <1>;
+					};
 					640x480P60 {
 						   clock-frequency = <25200000>;
 						   hactive = <640>;
