@@ -1479,7 +1479,7 @@ static int fb_probe(struct platform_device *device)
 	if(device->dev.of_node) {
 		hdmi_node = of_parse_phandle(device->dev.of_node,
 					"hdmi", 0);
-		if(da8xx_get_encoder_from_phandle(hdmi_node) == 0) {
+		if(hdmi_node && da8xx_get_encoder_from_phandle(hdmi_node) == 0) {
 			/* i2c encoder has not initialized yet, defer */
 			of_node_put(hdmi_node);
 			return -EPROBE_DEFER;
