@@ -142,6 +142,39 @@ static irq_handler_t lcdc_irq_handler;
 static wait_queue_head_t frame_done_wq;
 static int frame_done_flag;
 
+static LIST_HEAD(encoder_modules);
+
+struct encoder {
+	struct list_head list;
+	void *encoder_private;
+	struct device_node *node;
+};
+
+void da8xx_register_module(struct device_node *node, void *encoder_private)
+{
+	struct encoder *entry;
+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	if(!entry) 
+		return -ENOMEM;
+	
+	entry->encoder_private = encoder_private;
+	entry->node = node;
+	INIT_LIST_HEAD(&entry->list);
+	list_add(&entry->list, &encoder_modules);
+}
+EXPORT_SYMBOL(da8xx_register_module);
+
+struct encoder *da8xx_get_encoder_from_phandle(struct device_node *node)
+{
+	struct encoder *entry;
+	list_for_each_entry(entry, &encoder_modules, list)
+		if(entry->node == node)
+			return entry;
+
+	return 0;
+}
+			
+
 static unsigned int lcdc_read(unsigned int addr)
 {
 	return (unsigned int)__raw_readl(da8xx_fb_reg_base + (addr));
@@ -184,6 +217,7 @@ struct da8xx_fb_par {
 	u32 pseudo_palette[16];
 	struct fb_videomode	mode;
 	struct lcd_ctrl_config	cfg;
+	struct device_node *hdmi_node;
 };
 
 static struct fb_var_screeninfo da8xx_fb_var;
@@ -781,6 +815,7 @@ static int lcd_init(struct da8xx_fb_par *par, const struct lcd_ctrl_config *cfg,
 {
 	u32 bpp;
 	int ret = 0;
+	struct encoder *enc;
 	unsigned int div;
 	unsigned long pixclock;
 
@@ -1426,10 +1461,22 @@ static int fb_probe(struct platform_device *device)
 	struct clk *tmp_lcdc_clk, *tmp_disp_clk;
 	int ret;
 	unsigned long ulcm;
+	struct device_node *hdmi_node;
+
 
 	if (fb_pdata == NULL && !device->dev.of_node) {
 		dev_err(&device->dev, "Can not get platform data\n");
 		return -ENOENT;
+	}
+
+	if(device->dev.of_node) {
+		hdmi_node = of_parse_phandle(device->dev.of_node,
+					"hdmi", 0);
+		if(hdmi_node && da8xx_get_encoder_from_phandle(hdmi_node) == 0) {
+			/* i2c encoder has not initialized yet, defer */
+			of_node_put(hdmi_node);
+			return -EPROBE_DEFER;
+		}
 	}
 
 	lcdc_info = da8xx_fb_get_videomode(device);
@@ -1502,6 +1549,10 @@ static int fb_probe(struct platform_device *device)
 		par->panel_power_ctrl(1);
 	}
 
+	if (device->dev.of_node) {
+		par->hdmi_node = hdmi_node;
+	}
+ 
 	fb_videomode_to_var(&da8xx_fb_var, lcdc_info);
 	par->cfg = *lcd_cfg;
 
