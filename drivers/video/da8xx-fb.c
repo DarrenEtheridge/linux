@@ -810,6 +810,8 @@ static unsigned da8xx_fb_round_clk(struct da8xx_fb_par *par,
 }
 
 
+void da8xx_tda998x_setmode(void *enc, void *panel);
+
 static int lcd_init(struct da8xx_fb_par *par, const struct lcd_ctrl_config *cfg,
 		struct fb_videomode *panel)
 {
@@ -892,6 +894,13 @@ static int lcd_init(struct da8xx_fb_par *par, const struct lcd_ctrl_config *cfg,
 	/* Configure FDD */
 	lcdc_write((lcdc_read(LCD_RASTER_CTRL_REG) & 0xfff00fff) |
 		       (cfg->fdd << 12), LCD_RASTER_CTRL_REG);
+
+#ifdef CONFIG_FB_DA8XX_TDA998X
+	enc = da8xx_get_encoder_from_phandle(par->hdmi_node);
+	printk("hdmi_enc = %x\n", enc);
+	if(enc)
+		da8xx_tda998x_setmode(enc->encoder_private, (void *)panel);
+#endif
 
 	return 0;
 }
