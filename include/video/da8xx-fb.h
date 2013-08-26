@@ -91,5 +91,9 @@ struct lcd_sync_arg {
 /* Proprietary FB_SYNC_ flags */
 #define FB_SYNC_CLK_INVERT 0x40000000
 
+
+int da8xx_register_module(struct device_node *node, void *encoder_private);
+
+
 #endif  /* ifndef DA8XX_FB_H */
 
