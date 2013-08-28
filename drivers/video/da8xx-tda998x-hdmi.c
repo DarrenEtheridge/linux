@@ -520,16 +520,16 @@ static void convert_to_display_mode(struct tda_mode *mode,
 
 
 
-	pr_info("mode->htotal %d, mode->vtotal %d, mode->flags %x\n",
+	pr_debug("mode->htotal %d, mode->vtotal %d, mode->flags %x\n",
 		mode->htotal, mode->vtotal, mode->flags);
-	pr_info("mode->clock %d\n", mode->clock);
-	pr_info("mode->vrefresh %d\n", mode->vrefresh);
-	pr_info("mode->hdisplay %d\n", mode->hdisplay);
-	pr_info("mode->hsync_start %d\n", mode->hsync_start);
-	pr_info("mode->hsync_end %d\n", mode->hsync_end);
-	pr_info("mode->vdisplay %d\n", mode->vdisplay);
-	pr_info("mode->vsync_start %d\n", mode->vsync_start);
-	pr_info("mode->vsync_end %d\n", mode->vsync_end);
+	pr_debug("mode->clock %d\n", mode->clock);
+	pr_debug("mode->vrefresh %d\n", mode->vrefresh);
+	pr_debug("mode->hdisplay %d\n", mode->hdisplay);
+	pr_debug("mode->hsync_start %d\n", mode->hsync_start);
+	pr_debug("mode->hsync_end %d\n", mode->hsync_end);
+	pr_debug("mode->vdisplay %d\n", mode->vdisplay);
+	pr_debug("mode->vsync_start %d\n", mode->vsync_start);
+	pr_debug("mode->vsync_end %d\n", mode->vsync_end);
 
 	/*
 	 * this is a workaround to fix up the mode so that the non-vesa 
@@ -541,7 +541,7 @@ static void convert_to_display_mode(struct tda_mode *mode,
 	mode->hskew = mode->hsync_end - mode->hsync_start;
 	mode->flags ^= FB_SYNC_HOR_HIGH_ACT;
 
-	pr_info("mode->hskew %d\n", mode->hskew);
+	pr_debug("mode->hskew %d\n", mode->hskew);
 
 }
 

@@ -833,12 +833,12 @@ static int lcd_init(struct da8xx_fb_par *par, const struct lcd_ctrl_config *cfg,
 	}
 #else /* if CONFIG_FB_DA8XX_TDA998X */
 
-	pr_info("pixclock from panel %d\n", panel->pixclock);
+	pr_debug("pixclock from panel %d\n", panel->pixclock);
 	pixclock = PICOS2KHZ(panel->pixclock) * 1000;
-	pr_info("pixclock converted to hz %ld\n", pixclock);
+	pr_debug("pixclock converted to hz %ld\n", pixclock);
 	/* remove any rounding errors as this seems to mess up clk */
 	pixclock = (pixclock/10000)*10000;
-	pr_info("rounded clock rate %ld\n", 
+	pr_debug("rounded clock rate %ld\n", 
 		clk_round_rate(par->lcdc_clk, pixclock*2));
 	/* in raster mode, minimum divisor is 2: */
 	ret = clk_set_rate(par->disp_clk, pixclock * 2);
@@ -851,9 +851,9 @@ static int lcd_init(struct da8xx_fb_par *par, const struct lcd_ctrl_config *cfg,
 	par->lcdc_clk_rate = clk_get_rate(par->lcdc_clk);
 	div = par->lcdc_clk_rate / pixclock;
 		
-	pr_info("lcd_clk=%u, mode clock=%ld, div=%u\n", 
+	pr_debug("lcd_clk=%u, mode clock=%ld, div=%u\n", 
 		par->lcdc_clk_rate, pixclock, div);
-	pr_info("fck=%lu, dpll_disp_ck=%lu\n", 
+	pr_debug("fck=%lu, dpll_disp_ck=%lu\n", 
 		clk_get_rate(par->lcdc_clk), clk_get_rate(par->disp_clk));
 		
 	/* Configure the LCD clock divisor. */
