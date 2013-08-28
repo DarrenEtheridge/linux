@@ -35,10 +35,8 @@
 #define DBG(fmt, ...)
 #endif
 
-struct tda998x_encoder {
-	struct i2c_client *client;
-	struct tda998x_priv *tda998x_priv;
-};
+
+#define tda998x_encoder da8xx_encoder
 
 struct tda998x_priv {
 	struct i2c_client *cec;
@@ -52,7 +50,7 @@ struct tda998x_priv {
 	struct tda998x_encoder_params params;
 };
 
-#define to_tda998x_priv(x)  ((struct tda998x_priv *)x->tda998x_priv)
+#define to_tda998x_priv(x)  ((struct tda998x_priv *)x->priv)
 #define tda998x_i2c_encoder_get_client(x) ((struct i2c_client *)x->client)
 
 /* The TDA9988 series of devices use a paged register scheme.. to simplify
@@ -727,14 +725,13 @@ static int
 da8xx_tda998x_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct tda998x_priv *priv;
-	struct tda998x_encoder *encoder;
+	struct da8xx_encoder *encoder;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
 	priv->current_page = 0;
-	priv->cec = i2c_new_dummy(client->adapter, 0x34);
 
 	encoder = kzalloc(sizeof(*encoder), GFP_KERNEL);
 	if (!encoder) {
@@ -742,8 +739,13 @@ da8xx_tda998x_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		return -ENOMEM;
 	}
 
+	priv->cec = i2c_new_dummy(client->adapter, 0x34);
+
 	encoder->client = client;
-	encoder->tda998x_priv = priv;
+	encoder->priv = priv;
+	encoder->node = client->dev.of_node;
+	encoder->set_mode = da8xx_tda998x_setmode;
+
 
 	/* wake up the device: */
 	cec_write(encoder, REG_CEC_ENAMODS,
@@ -768,7 +770,7 @@ da8xx_tda998x_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto fail;
 	}
 
-	da8xx_register_module(client->dev.of_node, encoder);
+	da8xx_register_encoder(encoder);
 
 	/* after reset, enable DDC: */
 	reg_write(encoder, REG_DDC_DISABLE, 0x00);
@@ -783,12 +785,17 @@ da8xx_tda998x_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	cec_write(encoder, REG_CEC_FRO_IM_CLK_CTRL,
 			CEC_FRO_IM_CLK_CTRL_GHOST_DIS | CEC_FRO_IM_CLK_CTRL_IMCLK_SEL);
 
+	i2c_set_clientdata(client, encoder);
+
 	return 0;
 
 fail:
 	/* if encoder_init fails, the encoder slave is never registered,
 	 * so cleanup here:
 	 */
+	if (priv->cec)
+		i2c_unregister_device(priv->cec);
+
 	kfree(priv);
 	kfree(encoder);
 	return -ENXIO;
@@ -797,6 +804,21 @@ fail:
 static int
 da8xx_tda998x_remove(struct i2c_client *client)
 {
+	struct da8xx_encoder *da8xx_encoder;
+	struct tda998x_priv *priv;
+
+	da8xx_encoder = i2c_get_clientdata(client);
+	if(da8xx_encoder) {
+		da8xx_unregister_encoder(da8xx_encoder);
+		priv = to_tda998x_priv(da8xx_encoder);
+		if (priv->cec) {
+			/* disable the device: */
+			cec_write(da8xx_encoder, REG_CEC_ENAMODS, 0);
+			i2c_unregister_device(priv->cec);
+		}
+		kfree(da8xx_encoder->priv);
+		kfree(da8xx_encoder);
+	}
 	return 0;
 }
 
@@ -805,7 +827,7 @@ static struct i2c_device_id da8xx_tda998x_ids[] = {
 	{ "tda998x", 0 },
 	{ }
 };
-MODULE_DEVICE_TABLE(i2c, tda998x_ids);
+MODULE_DEVICE_TABLE(i2c, da8xx_tda998x_ids);
 
 static struct i2c_driver da8xx_tda998x_driver = {
 	.probe = da8xx_tda998x_probe,
@@ -818,3 +840,7 @@ static struct i2c_driver da8xx_tda998x_driver = {
 };
 
 module_i2c_driver(da8xx_tda998x_driver);
+
+MODULE_DESCRIPTION("NXP TDA998x HDMI encoder driver for TI AM335x/DA8xx");
+MODULE_AUTHOR("Texas Instruments");
+MODULE_LICENSE("GPL");

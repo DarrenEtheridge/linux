@@ -13,8 +13,6 @@
 
 #include <linux/fb.h>
 
-struct tda998x_encoder;
-
 enum tda998x_audio_format {
 	AFMT_I2S,
 	AFMT_SPDIF,
@@ -33,7 +31,5 @@ struct tda998x_encoder_params {
 	int swap_e, mirr_e;
 	int swap_f, mirr_f;
 };
-
-void da8xx_tda998x_setmode(struct tda998x_encoder *encoder, struct fb_videomode *vid_mode);
 
 #endif
